@@ -3,10 +3,12 @@ import { FrameElement } from "../../elements/frame_element"
 import { FetchRequest, FetchRequestHeaders, FetchRequestDelegate, FetchMethod } from "../../http/fetch_request"
 import { FetchResponse } from "../../http/fetch_response"
 import { FormSubmission, FormSubmissionDelegate } from "../drive/form_submission"
+import { StreamAction, streamActionFromString } from "../streams/stream_actions"
 
 export interface FrameVisitOptions {
   submit: { form: HTMLFormElement, submitter?: HTMLElement },
   url: string,
+  rendering: StreamAction | null
 }
 
 export interface FrameVisitDelegate {
@@ -22,6 +24,7 @@ export class FrameVisit implements FetchRequestDelegate, FormSubmissionDelegate 
   readonly delegate: FrameVisitDelegate
   readonly element: FrameElement
   readonly previousURL: string | null
+  readonly rendering: StreamAction
   readonly options: Partial<FrameVisitOptions>
   readonly isFormSubmission: boolean = false
 
@@ -30,18 +33,22 @@ export class FrameVisit implements FetchRequestDelegate, FormSubmissionDelegate 
   private resolveVisitPromise = () => {}
 
   static optionsForClick(element: Element, url: string): Partial<FrameVisitOptions> {
-    return { url }
+    const rendering = streamActionFromString(element.getAttribute("data-turbo-rendering"))
+    return { rendering, url }
   }
 
   static optionsForSubmit(form: HTMLFormElement, submitter?: HTMLElement): Partial<FrameVisitOptions> {
-    return { submit: { form, submitter } }
+    const rendering = streamActionFromString(submitter?.getAttribute("data-turbo-rendering") || form.getAttribute("data-turbo-rendering"))
+    return { rendering, submit: { form, submitter } }
   }
 
   constructor(delegate: FrameVisitDelegate, element: FrameElement, options: Partial<FrameVisitOptions> = {}) {
     this.delegate = delegate
     this.element = element
     this.previousURL = this.element.src
-    const { url, submit } = this.options = options
+    const { url, submit, rendering } = this.options = options
+
+    this.rendering = rendering || this.element.rendering
 
     if (url) {
       this.fetchRequest = new FetchRequest(this, FetchMethod.get, expandURL(url), new URLSearchParams, this.element)

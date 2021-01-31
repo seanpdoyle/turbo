@@ -10,6 +10,7 @@ import { FormInterceptor, FormInterceptorDelegate } from "./form_interceptor"
 import { FrameView } from "./frame_view"
 import { LinkInterceptor, LinkInterceptorDelegate } from "./link_interceptor"
 import { FrameRenderer } from "./frame_renderer"
+import { StreamAction } from "../streams/stream_actions"
 import { session } from "../index"
 
 export class FrameController implements AppearanceObserverDelegate, FormInterceptorDelegate, FrameElementDelegate, FrameVisitDelegate, LinkInterceptorDelegate, ViewDelegate<Snapshot<FrameElement>> {
@@ -115,11 +116,11 @@ export class FrameController implements AppearanceObserverDelegate, FormIntercep
   }
 
   async visitSucceeded(frameVisit: FrameVisit, response: FetchResponse) {
-    await this.loadResponse(response)
+    await this.loadResponse(response, frameVisit.rendering)
   }
 
   async visitFailed(frameVisit: FrameVisit, response: FetchResponse) {
-    await this.loadResponse(response)
+    await this.loadResponse(response, frameVisit.rendering)
   }
 
   visitErrored(frameVisit: FrameVisit, error: Error) {
@@ -134,7 +135,7 @@ export class FrameController implements AppearanceObserverDelegate, FormIntercep
     this.hasBeenLoaded = true
   }
 
-  async loadResponse(fetchResponse: FetchResponse) {
+  async loadResponse(fetchResponse: FetchResponse, rendering: StreamAction) {
     if (fetchResponse.redirected) {
       this.sourceURL = fetchResponse.response.url
     }
@@ -144,7 +145,7 @@ export class FrameController implements AppearanceObserverDelegate, FormIntercep
       if (html) {
         const { body } = parseHTMLDocument(html)
         const snapshot = new Snapshot(await this.extractForeignFrameElement(body))
-        const renderer = new FrameRenderer(this.view.snapshot, snapshot, false)
+        const renderer = new FrameRenderer(this.view.snapshot, snapshot, false, rendering)
         if (this.view.renderPromise) await this.view.renderPromise
         await this.view.render(renderer)
         session.frameRendered(fetchResponse, this.element);
