@@ -1,8 +1,16 @@
 import { FrameElement } from "../../elements/frame_element"
+import { RenderActions, RenderAction } from "../render_actions"
 import { nextAnimationFrame } from "../../util"
 import { Renderer } from "../renderer"
+import { Snapshot } from "../snapshot"
 
 export class FrameRenderer extends Renderer<FrameElement> {
+  readonly renderAction: RenderAction
+  constructor(currentSnapshot: Snapshot<FrameElement>, newSnapshot: Snapshot<FrameElement>, isPreview: boolean, renderAction: RenderAction) {
+    super(currentSnapshot, newSnapshot, isPreview)
+    this.renderAction = renderAction
+  }
+
   get shouldRender() {
     return true
   }
@@ -18,16 +26,13 @@ export class FrameRenderer extends Renderer<FrameElement> {
   }
 
   loadFrameElement() {
-    const destinationRange = document.createRange()
-    destinationRange.selectNodeContents(this.currentElement)
-    destinationRange.deleteContents()
+    const sourceRange = this.newElement.ownerDocument?.createRange()
+    sourceRange.selectNodeContents(this.newElement)
 
-    const frameElement = this.newElement
-    const sourceRange = frameElement.ownerDocument?.createRange()
-    if (sourceRange) {
-      sourceRange.selectNodeContents(frameElement)
-      this.currentElement.appendChild(sourceRange.extractContents())
-    }
+    RenderActions[this.renderAction].apply({
+      targetElement: this.currentElement,
+      templateContent: sourceRange.extractContents()
+    })
   }
 
   scrollFrameIntoView() {

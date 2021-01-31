@@ -1,3 +1,4 @@
+import { RenderAction, renderActionFromString } from "../core/render_actions"
 import { FetchResponse } from "../http/fetch_response"
 
 export enum FrameLoadingStyle { eager = "eager", lazy = "lazy" }
@@ -40,6 +41,18 @@ export class FrameElement extends HTMLElement {
       this.delegate.loadingStyleChanged()
     } else if (name == "src") {
       this.delegate.sourceURLChanged()
+    }
+  }
+
+  get action(): RenderAction {
+    return renderActionFromString(this.getAttribute("action"))
+  }
+
+  set action(value: RenderAction) {
+    if (value) {
+      this.setAttribute("action", renderActionFromString(value))
+    } else {
+      this.removeAttribute("action")
     }
   }
 

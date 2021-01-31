@@ -8,9 +8,13 @@
   <body>
     <h1>Frames</h1>
 
-    <turbo-frame id="frame">
-      <h2>Frames: #frame</h2>
-    </turbo-frame>
+    <div id="frame-with-action">
+      <turbo-frame id="frame">
+        <h2>Frames: #frame</h2>
+      </turbo-frame>
+
+      <a href="/src/tests/fixtures/frames/frame.html" data-turbo-frame="frame">Load #frame</a>
+    </div>
 
     <turbo-frame id="hello" target="frame">
       <h2>Frames: #hello</h2>

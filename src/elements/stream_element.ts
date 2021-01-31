@@ -1,4 +1,4 @@
-import { StreamActions } from "../core/streams/stream_actions"
+import { RenderActions } from "../core/render_actions"
 import { nextAnimationFrame } from "../util"
 
 // <turbo-stream action=replace target=id><template>...
@@ -31,7 +31,7 @@ export class StreamElement extends HTMLElement {
 
   get performAction() {
     if (this.action) {
-      const actionFunction = StreamActions[this.action]
+      const actionFunction = RenderActions[this.action]
       if (actionFunction) {
         return actionFunction
       }

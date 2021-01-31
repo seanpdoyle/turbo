@@ -46,6 +46,63 @@ export class FrameTests extends FunctionalTestCase {
     const frameText = await this.querySelector("body > h1")
     this.assert.equal(await frameText.getVisibleText(), "One")
   }
+
+  async "test frame with action=append appends the contents"() {
+    await this.remote.execute(() => document.getElementById("frame")?.setAttribute("action", "append"))
+    await this.clickSelector("#frame-with-action a:first-of-type")
+    await this.nextBeat
+
+    this.assert.ok(await this.hasSelector("#frame"), "preserves existing frame")
+    this.assert.equal(await this.getVisibleText("#frame h2:first-of-type"), "Frames: #frame")
+    this.assert.equal(await this.getVisibleText("#frame h2:last-of-type"), "Frame: Loaded")
+  }
+
+  async "test frame with action=prepend appends the contents"() {
+    await this.remote.execute(() => document.getElementById("frame")?.setAttribute("action", "prepend"))
+    await this.clickSelector("#frame-with-action a:first-of-type")
+    await this.nextBeat
+
+    this.assert.ok(await this.hasSelector("#frame"), "preserves existing frame")
+    this.assert.equal(await this.getVisibleText("#frame h2:first-of-type"), "Frame: Loaded")
+    this.assert.equal(await this.getVisibleText("#frame h2:last-of-type"), "Frames: #frame")
+  }
+
+  async "test frame with action=remove removes the element"() {
+    await this.remote.execute(() => document.getElementById("frame")?.setAttribute("action", "remove"))
+    await this.clickSelector("#frame-with-action a:first-of-type")
+    await this.nextBeat
+
+    this.assert.notOk(await this.hasSelector("turbo-frame#frame"), "removes existing frame")
+    this.assert.notOk(await this.hasSelector("#frame-with-action h2"))
+  }
+
+  async "test frame with action=replace sets outerHTML"() {
+    await this.remote.execute(() => document.getElementById("frame")?.setAttribute("action", "replace"))
+    await this.clickSelector("#frame-with-action a:first-of-type")
+    await this.nextBeat
+
+    this.assert.notOk(await this.hasSelector("turbo-frame#frame"), "removes existing frame")
+    this.assert.equal(await this.getVisibleText("#frame-with-action h2:first-of-type"), "Frame: Loaded")
+  }
+
+  async "test frame without action defaults to action=update"() {
+    await this.remote.execute(() => document.getElementById("frame")?.removeAttribute("action"))
+    await this.clickSelector("#frame-with-action a:first-of-type")
+    await this.nextBeat
+
+    this.assert.ok(await this.hasSelector("turbo-frame#frame"), "preserves existing frame")
+    this.assert.equal(await this.getVisibleText("#frame h2"), "Frame: Loaded")
+  }
+
+  async "test frame with action=update sets innerHTML"() {
+    await this.remote.execute(() => document.getElementById("frame")?.setAttribute("action", "update"))
+    await this.clickSelector("#frame-with-action a:first-of-type")
+    await this.nextBeat
+
+    this.assert.ok(await this.hasSelector("turbo-frame#frame"))
+    this.assert.equal(await this.getVisibleText("#frame h2"), "Frame: Loaded")
+  }
+
 }
 
 FrameTests.registerSuite()
