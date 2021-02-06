@@ -213,7 +213,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
 
   private findFrameElement(element: Element) {
     const id = element.getAttribute("data-turbo-frame") || this.element.getAttribute("target")
-    return getFrameElementById(id) ?? this.element
+    return FrameElement.getElementById(document, id) ?? this.element
   }
 
   async extractForeignFrameElement(container: ParentNode): Promise<FrameElement> {
@@ -238,16 +238,11 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
 
     if (!this.enabled || id == "_top") {
       return false
+    } else if (id) {
+      return !!FrameElement.getElementById(document, id)
+    } else {
+      return true
     }
-
-    if (id) {
-      const frameElement = getFrameElementById(id)
-      if (frameElement) {
-        return !frameElement.disabled
-      }
-    }
-
-    return true
   }
 
   // Computed properties
@@ -274,15 +269,6 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
 
   get isActive() {
     return this.element.isActive
-  }
-}
-
-function getFrameElementById(id: string | null) {
-  if (id != null) {
-    const element = document.getElementById(id)
-    if (element instanceof FrameElement) {
-      return element
-    }
   }
 }
 

@@ -23,6 +23,15 @@ export class FrameElement extends HTMLElement {
     return ["loading", "src"]
   }
 
+  static getElementById(container: Element | Document, id: string | null): FrameElement | undefined {
+    if (id && id != "_top") {
+      const frame = container.querySelector(`#${id}:not([disabled])`)
+      if (frame instanceof FrameElement) {
+        return frame
+      }
+    }
+  }
+
   constructor() {
     super()
     this.delegate = new FrameElement.delegateConstructor(this)
