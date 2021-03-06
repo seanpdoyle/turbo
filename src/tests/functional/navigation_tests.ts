@@ -15,6 +15,8 @@ export class NavigationTests extends TurboDriveTestCase {
     await this.nextBody
     this.assert.equal(await this.pathname, "/src/tests/fixtures/one.html")
     this.assert.equal(await this.visitAction, "advance")
+    this.assert.equal(await this.nextAttributeMutationNamed("html", "data-turbo-busy"), "", "sets [data-turbo-busy] on the document element")
+    this.assert.equal(await this.nextAttributeMutationNamed("html", "data-turbo-busy"), null, "removes [data-turbo-busy] from the document element")
   }
 
   async "test following a same-origin unannotated form[method=GET]"() {
