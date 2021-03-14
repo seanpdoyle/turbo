@@ -12,6 +12,7 @@ import { FrameView } from "./frame_view"
 import { LinkInterceptor, LinkInterceptorDelegate } from "./link_interceptor"
 import { FrameRenderer } from "./frame_renderer"
 import { elementIsNavigable } from "../session"
+import { navigator } from "../../core"
 
 export class FrameController implements AppearanceObserverDelegate, FetchRequestDelegate, FormInterceptorDelegate, FormSubmissionDelegate, FrameElementDelegate, LinkInterceptorDelegate, ViewDelegate<Snapshot<FrameElement>> {
   readonly element: FrameElement
@@ -192,7 +193,16 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
 
   formSubmissionSucceededWithResponse(formSubmission: FormSubmission, response: FetchResponse) {
     const frame = this.findFrameElement(formSubmission.formElement)
-    frame.delegate.loadResponse(response)
+    const target = [ formSubmission.formElement, formSubmission.submitter, frame ]
+      .map(element => element?.getAttribute("data-turbo-frame"))
+      .find(target => target)
+
+    if (response.redirected && target == "_top") {
+      navigator.formSubmission = formSubmission
+      navigator.formSubmissionSucceededWithResponse(formSubmission, response)
+    } else {
+      frame.delegate.loadResponse(response)
+    }
   }
 
   formSubmissionFailedWithResponse(formSubmission: FormSubmission, fetchResponse: FetchResponse) {
@@ -280,6 +290,9 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
       if (frameElement) {
         return !frameElement.disabled
       }
+    } else {
+      const frame = element.closest("turbo-frame:not([disabled])")
+      return this.element == frame
     }
 
     if (!elementIsNavigable(element)) {

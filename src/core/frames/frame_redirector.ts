@@ -47,13 +47,30 @@ export class FrameRedirector implements LinkInterceptorDelegate, FormInterceptor
 
   private shouldRedirect(element: Element, submitter?: HTMLElement) {
     const frame = this.findFrameElement(element)
-    return frame ? frame != element.closest("turbo-frame") : false
+    if (frame) {
+      if (frame == element.closest("turbo-frame")) {
+        if (element instanceof HTMLFormElement) {
+          return frame.getAttribute("data-turbo-frame") == "_top" || element.getAttribute("data-turbo-frame") == "_top"
+        } else {
+          return frame.getAttribute("data-turbo-frame") == "_top"
+        }
+      } else {
+        return true
+      }
+    } else {
+      return false
+    }
   }
 
   private findFrameElement(element: Element) {
     const id = element.getAttribute("data-turbo-frame")
     if (id && id != "_top") {
       const frame = this.element.querySelector(`#${id}:not([disabled])`)
+      if (frame instanceof FrameElement) {
+        return frame
+      }
+    } else if (id == "_top") {
+      const frame = element.closest(`turbo-frame:not([disabled])`)
       if (frame instanceof FrameElement) {
         return frame
       }
