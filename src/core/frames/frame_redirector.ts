@@ -1,6 +1,7 @@
 import { FormInterceptor, FormInterceptorDelegate } from "./form_interceptor"
 import { FrameElement } from "../../elements/frame_element"
 import { LinkInterceptor, LinkInterceptorDelegate } from "./link_interceptor"
+import { FrameVisit } from "./frame_visit"
 
 export class FrameRedirector implements LinkInterceptorDelegate, FormInterceptorDelegate {
   readonly element: Element
@@ -31,7 +32,7 @@ export class FrameRedirector implements LinkInterceptorDelegate, FormInterceptor
     const frame = this.findFrameElement(element)
     if (frame) {
       frame.setAttribute("reloadable", "")
-      frame.src = url
+      frame.delegate.visit(FrameVisit.optionsForClick(element, url))
     }
   }
 
@@ -43,7 +44,7 @@ export class FrameRedirector implements LinkInterceptorDelegate, FormInterceptor
     const frame = this.findFrameElement(element, submitter)
     if (frame) {
       frame.removeAttribute("reloadable")
-      frame.delegate.formSubmissionIntercepted(element, submitter)
+      frame.delegate.submit(FrameVisit.optionsForSubmit(element, submitter))
     }
   }
 

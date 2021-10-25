@@ -1,28 +1,25 @@
 import { FrameElement, FrameElementDelegate, FrameLoadingStyle } from "../../elements/frame_element"
-import { FetchMethod, FetchRequest, FetchRequestDelegate, FetchRequestHeaders } from "../../http/fetch_request"
+import { FrameVisit, FrameVisitDelegate, FrameVisitOptions } from "./frame_visit"
 import { FetchResponse } from "../../http/fetch_response"
-import { AppearanceObserver, AppearanceObserverDelegate } from "../../observers/appearance_observer"
 import { parseHTMLDocument } from "../../util"
-import { FormSubmission, FormSubmissionDelegate } from "../drive/form_submission"
+import { AppearanceObserver, AppearanceObserverDelegate } from "../../observers/appearance_observer"
 import { Snapshot } from "../snapshot"
 import { ViewDelegate } from "../view"
-import { expandURL, urlsAreEqual, Locatable } from "../url"
+import { urlsAreEqual } from "../url"
 import { FormInterceptor, FormInterceptorDelegate } from "./form_interceptor"
 import { FrameView } from "./frame_view"
 import { LinkInterceptor, LinkInterceptorDelegate } from "./link_interceptor"
 import { FrameRenderer } from "./frame_renderer"
 import { session } from "../index"
 
-export class FrameController implements AppearanceObserverDelegate, FetchRequestDelegate, FormInterceptorDelegate, FormSubmissionDelegate, FrameElementDelegate, LinkInterceptorDelegate, ViewDelegate<Snapshot<FrameElement>> {
+export class FrameController implements AppearanceObserverDelegate, FormInterceptorDelegate, FrameElementDelegate, FrameVisitDelegate, LinkInterceptorDelegate, ViewDelegate<Snapshot<FrameElement>> {
   readonly element: FrameElement
   readonly view: FrameView
   readonly appearanceObserver: AppearanceObserver
   readonly linkInterceptor: LinkInterceptor
   readonly formInterceptor: FormInterceptor
   currentURL?: string | null
-  formSubmission?: FormSubmission
-  private currentFetchRequest: FetchRequest | null = null
-  private resolveVisitPromise = () => {}
+  frameVisit?: FrameVisit
   private connected = false
   private hasBeenLoaded = false
   private settingSourceURL = false
@@ -59,13 +56,13 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
 
   disabledChanged() {
     if (this.loadingStyle == FrameLoadingStyle.eager) {
-      this.loadSourceURL()
+      this.visit()
     }
   }
 
   sourceURLChanged() {
     if (this.loadingStyle == FrameLoadingStyle.eager || this.hasBeenLoaded) {
-      this.loadSourceURL()
+      this.visit()
     }
   }
 
@@ -74,27 +71,67 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
       this.appearanceObserver.start()
     } else {
       this.appearanceObserver.stop()
-      this.loadSourceURL()
+      this.visit()
     }
   }
 
-  async loadSourceURL() {
-    if (!this.settingSourceURL && this.enabled && this.isActive && (this.reloadable || this.sourceURL != this.currentURL)) {
-      const previousURL = this.currentURL
-      this.currentURL = this.sourceURL
-      if (this.sourceURL) {
-        try {
-          this.element.loaded = this.visit(this.sourceURL)
-          this.appearanceObserver.stop()
-          await this.element.loaded
-          this.hasBeenLoaded = true
-          session.frameLoaded(this.element)
-        } catch (error) {
-          this.currentURL = previousURL
-          throw error
-        }
-      }
+  visit(options: Partial<FrameVisitOptions> = {}) {
+    const { url } = options
+
+    if (url) this.sourceURL = url
+
+    if (this.sourceURL) {
+      const frameVisit = new FrameVisit(this, this.element, { url: this.sourceURL, ...options })
+      frameVisit.start()
     }
+  }
+
+  submit(options: Partial<FrameVisitOptions> = {}) {
+    const { submit } = options
+
+    if (submit) {
+      const frameVisit = new FrameVisit(this, this.element, options)
+      frameVisit.start()
+    }
+  }
+
+  // Frame visit delegate
+
+  shouldVisit({ isFormSubmission }: FrameVisit) {
+    return !this.settingSourceURL && this.enabled && this.isActive && (this.reloadable || (this.sourceURL != this.currentURL || isFormSubmission))
+  }
+
+  visitStarted(frameVisit: FrameVisit) {
+    this.frameVisit?.stop()
+    this.frameVisit = frameVisit
+
+    this.element.setAttribute("busy", "")
+
+    if (frameVisit.options.url) {
+      this.currentURL = frameVisit.options.url
+    }
+
+    this.appearanceObserver.stop()
+  }
+
+  async visitSucceeded(frameVisit: FrameVisit, response: FetchResponse) {
+    await this.loadResponse(response)
+  }
+
+  async visitFailed(frameVisit: FrameVisit, response: FetchResponse) {
+    await this.loadResponse(response)
+  }
+
+  visitErrored(frameVisit: FrameVisit, error: Error) {
+    console.error(error)
+    this.currentURL = frameVisit.previousURL
+    this.view.invalidate()
+    throw error
+  }
+
+  visitCompleted(frameVisit: FrameVisit) {
+    this.element.removeAttribute("busy")
+    this.hasBeenLoaded = true
   }
 
   async loadResponse(fetchResponse: FetchResponse) {
@@ -111,6 +148,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
         if (this.view.renderPromise) await this.view.renderPromise
         await this.view.render(renderer)
         session.frameRendered(fetchResponse, this.element);
+        session.frameLoaded(this.element)
       }
     } catch (error) {
       console.error(error)
@@ -121,7 +159,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   // Appearance observer delegate
 
   elementAppearedInViewport(element: Element) {
-    this.loadSourceURL()
+    this.visit()
   }
 
   // Link interceptor delegate
@@ -146,73 +184,9 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   }
 
   formSubmissionIntercepted(element: HTMLFormElement, submitter?: HTMLElement) {
-    if (this.formSubmission) {
-      this.formSubmission.stop()
-    }
-
-    this.reloadable = false
-    this.formSubmission = new FormSubmission(this, element, submitter)
-    const { fetchRequest } = this.formSubmission
-    this.prepareHeadersForRequest(fetchRequest.headers, fetchRequest)
-    this.formSubmission.start()
-  }
-
-  // Fetch request delegate
-
-  prepareHeadersForRequest(headers: FetchRequestHeaders, request: FetchRequest) {
-    headers["Turbo-Frame"] = this.id
-  }
-
-  requestStarted(request: FetchRequest) {
-    this.element.setAttribute("busy", "")
-  }
-
-  requestPreventedHandlingResponse(request: FetchRequest, response: FetchResponse) {
-    this.resolveVisitPromise()
-  }
-
-  async requestSucceededWithResponse(request: FetchRequest, response: FetchResponse) {
-    await this.loadResponse(response)
-    this.resolveVisitPromise()
-  }
-
-  requestFailedWithResponse(request: FetchRequest, response: FetchResponse) {
-    console.error(response)
-    this.resolveVisitPromise()
-  }
-
-  requestErrored(request: FetchRequest, error: Error) {
-    console.error(error)
-    this.resolveVisitPromise()
-  }
-
-  requestFinished(request: FetchRequest) {
-    this.element.removeAttribute("busy")
-  }
-
-  // Form submission delegate
-
-  formSubmissionStarted(formSubmission: FormSubmission) {
-    const frame = this.findFrameElement(formSubmission.formElement)
-    frame.setAttribute("busy", "")
-  }
-
-  formSubmissionSucceededWithResponse(formSubmission: FormSubmission, response: FetchResponse) {
-    const frame = this.findFrameElement(formSubmission.formElement, formSubmission.submitter)
-    frame.delegate.loadResponse(response)
-  }
-
-  formSubmissionFailedWithResponse(formSubmission: FormSubmission, fetchResponse: FetchResponse) {
-    this.element.delegate.loadResponse(fetchResponse)
-  }
-
-  formSubmissionErrored(formSubmission: FormSubmission, error: Error) {
-    console.error(error)
-  }
-
-  formSubmissionFinished(formSubmission: FormSubmission) {
-    const frame = this.findFrameElement(formSubmission.formElement)
-    frame.removeAttribute("busy")
+    const frame = this.findFrameElement(element, submitter)
+    frame.removeAttribute("reloadable")
+    frame.delegate.submit(FrameVisit.optionsForSubmit(element, submitter))
   }
 
   // View delegate
@@ -229,26 +203,10 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
 
   // Private
 
-  private async visit(url: Locatable) {
-    const request = new FetchRequest(this, FetchMethod.get, expandURL(url), new URLSearchParams, this.element)
-
-    this.currentFetchRequest?.cancel()
-    this.currentFetchRequest = request
-
-    return new Promise<void>(resolve => {
-      this.resolveVisitPromise = () => {
-        this.resolveVisitPromise = () => {}
-        this.currentFetchRequest = null
-        resolve()
-      }
-      request.perform()
-    })
-  }
-
   private navigateFrame(element: Element, url: string, submitter?: HTMLElement) {
     const frame = this.findFrameElement(element, submitter)
     frame.setAttribute("reloadable", "")
-    frame.src = url
+    frame.delegate.visit(FrameVisit.optionsForClick(element, url))
   }
 
   private findFrameElement(element: Element, submitter?: HTMLElement) {
@@ -345,7 +303,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   }
 
   get isLoading() {
-    return this.formSubmission !== undefined || this.resolveVisitPromise() !== undefined
+    return this.frameVisit !== undefined
   }
 
   get isActive() {
