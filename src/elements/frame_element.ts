@@ -12,6 +12,7 @@ export interface FrameElementDelegate {
   linkClickIntercepted(element: Element, url: string): void
   loadResponse(response: FetchResponse): void
   isLoading: boolean
+  isActive: boolean
 }
 
 /**

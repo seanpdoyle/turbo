@@ -9,6 +9,14 @@
       addEventListener("click", ({ target }) => {
         if (target.id == "add-turbo-action-to-frame") {
           target.closest("turbo-frame")?.setAttribute("data-turbo-action", "advance")
+        } else if (target.id == "propose-visit-when-frame-missing") {
+          addEventListener("turbo:frame-missing", async (event) => {
+            const { detail: { fetchResponse } } = event
+            const { location, redirected, statusCode, responseHTML } = fetchResponse
+            const response = { redirected, statusCode, responseHTML: await responseHTML }
+
+            window.Turbo.visit(location, { response })
+          }, { once: true })
         }
       })
     </script>
@@ -78,6 +86,10 @@
 
     <turbo-frame id="missing">
       <a href="/src/tests/fixtures/frames/frame.html">Missing frame</a>
+      <form action="/__turbo/redirect">
+        <input type="hidden" name="path" value="/src/tests/fixtures/frames/frame.html">
+        <button>Missing frame</button>
+      </form>
     </turbo-frame>
 
     <turbo-frame id="body-script" target="body-script">
@@ -104,5 +116,7 @@
     <form data-turbo-frame="frame" method="get" action="/src/tests/fixtures/frames/frame.html">
       <input id="outer-frame-submit" type="submit" value="Outer form submit">
     </form>
+
+    <button id="propose-visit-when-frame-missing" type="button">Propose Visit when frame missing</button>
   </body>
 </html>

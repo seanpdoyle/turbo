@@ -267,6 +267,10 @@ export class Session implements FormSubmitObserverDelegate, HistoryDelegate, Lin
     this.notifyApplicationAfterFrameRender(fetchResponse, frame);
   }
 
+  async frameMissing(fetchResponse: FetchResponse, target: FrameElement) {
+    dispatch("turbo:frame-missing", { target, detail: { fetchResponse } })
+  }
+
   // Application events
 
   applicationAllowsFollowingLinkToLocation(link: Element, location: URL) {

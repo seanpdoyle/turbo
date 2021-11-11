@@ -19,8 +19,8 @@ export class FrameTests extends TurboDriveTestCase {
   async "test a frame whose src references itself does not infinitely loop"() {
     await this.clickSelector("#frame-self")
 
-    await this.nextEventOnTarget("frame", "turbo:frame-render")
-    await this.nextEventOnTarget("frame", "turbo:frame-load")
+    await this.nextEventOnTarget("frame", "turbo:before-fetch-request")
+    await this.nextEventOnTarget("frame", "turbo:before-fetch-response")
 
     const otherEvents = await this.eventLogChannel.read()
     this.assert.equal(otherEvents.length, 0, "no more events")
@@ -37,8 +37,11 @@ export class FrameTests extends TurboDriveTestCase {
 
   async "test following a link to a page without a matching frame results in an empty frame"() {
     await this.clickSelector("#missing a")
-    await this.nextBeat
+
+    const { fetchResponse } = await this.nextEventOnTarget("missing", "turbo:frame-missing")
+
     this.assert.notOk(await this.innerHTMLForSelector("#missing"))
+    this.assert.ok(fetchResponse)
   }
 
   async "test following a link within a frame with a target set navigates the target frame"() {
@@ -407,6 +410,26 @@ export class FrameTests extends TurboDriveTestCase {
     this.assert.equal(await this.pathname, "/src/tests/fixtures/frames/frame.html")
   }
 
+  async "test navigating frame resulting in response without matching frame can be re-purposed to navigate entire page"() {
+    await this.proposeVisitWhenFrameIsMissingInResponse()
+    await this.clickSelector("#missing a")
+    await this.nextEventNamed("turbo:load")
+
+    this.assert.notOk(await this.hasSelector("#missing"))
+    this.assert.equal(await (await this.querySelector("h1")).getVisibleText(), "Frames: #frame")
+    this.assert.equal(await this.pathname, "/src/tests/fixtures/frames/frame.html")
+  }
+
+  async "test submitting frame resulting in response without matching frame can be re-purposed to navigate entire page"() {
+    await this.proposeVisitWhenFrameIsMissingInResponse()
+    await this.clickSelector("#missing button")
+    await this.nextEventNamed("turbo:load")
+
+    this.assert.notOk(await this.hasSelector("#missing"))
+    this.assert.equal(await (await this.querySelector("h1")).getVisibleText(), "Frames: #frame")
+    this.assert.equal(await this.pathname, "/src/tests/fixtures/frames/frame.html")
+  }
+
   async "test turbo:before-fetch-request fires on the frame element"() {
     await this.clickSelector("#hello a")
     this.assert.ok(await this.nextEventOnTarget("frame", "turbo:before-fetch-request"))
@@ -419,6 +442,10 @@ export class FrameTests extends TurboDriveTestCase {
 
   get frameScriptEvaluationCount(): Promise<number | undefined> {
     return this.evaluate(() => window.frameScriptEvaluationCount)
+  }
+
+  proposeVisitWhenFrameIsMissingInResponse(): Promise<void> {
+    return this.clickSelector("#propose-visit-when-frame-missing")
   }
 }
 
