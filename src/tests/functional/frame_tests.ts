@@ -380,7 +380,7 @@ export class FrameTests extends TurboDriveTestCase {
     await this.clickSelector("#link-frame")
     await this.nextEventNamed("turbo:load")
     await this.goBack()
-    await this.nextBody
+    await this.nextEventNamed("turbo:load")
 
     const title = await this.querySelector("h1")
     const frameTitle = await this.querySelector("#frame h2")
@@ -395,9 +395,9 @@ export class FrameTests extends TurboDriveTestCase {
     await this.clickSelector("#link-frame")
     await this.nextEventNamed("turbo:load")
     await this.goBack()
-    await this.nextBody
+    await this.nextEventNamed("turbo:load")
     await this.goForward()
-    await this.nextBody
+    await this.nextEventNamed("turbo:load")
 
     const title = await this.querySelector("h1")
     const frameTitle = await this.querySelector("#frame h2")
