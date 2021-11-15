@@ -290,11 +290,11 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
     let element
     const id = CSS.escape(this.id)
 
-    if (element = activateElement(container.querySelector(`turbo-frame#${id}`), this.currentURL)) {
+    if (element = activateElement(container.querySelector(`turbo-frame:not([disabled])#${id}`), this.currentURL)) {
       return element
     }
 
-    if (element = activateElement(container.querySelector(`turbo-frame[src][recurse~=${id}]`), this.currentURL)) {
+    if (element = activateElement(container.querySelector(`turbo-frame:not([disabled])[src][recurse~=${id}]`), this.currentURL)) {
       await element.loaded
       return await this.extractForeignFrameElement(element)
     }

@@ -117,6 +117,13 @@
       <input id="outer-frame-submit" type="submit" value="Outer form submit">
     </form>
 
+    <turbo-frame id="disabled" src="/src/tests/fixtures/frames/disabled.html">
+    </turbo-frame>
+
+    <turbo-frame id="disabled_recursive" recurse="disabled_composer" src="/src/tests/fixtures/frames/disabled_recursive.html">
+    </turbo-frame>
+
+
     <button id="propose-visit-when-frame-missing" type="button">Propose Visit when frame missing</button>
   </body>
 </html>

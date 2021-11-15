@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Disabled Recursive Frame</title>
+    <script src="/dist/turbo.es2017-umd.js" data-turbo-track="reload"></script>
+  </head>
+  <body>
+    <turbo-frame id="disabled_recursive" disabled>
+      <h2>Frame: #disabled_recursive loaded</h2>
+      <turbo-frame id="disabled_composer">
+        <h2>Frame: #disabled_composer loaded</h2>
+      </turbo-frame>
+    </turbo-frame>
+  </body>
+</html>

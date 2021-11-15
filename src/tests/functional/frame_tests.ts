@@ -146,6 +146,12 @@ export class FrameTests extends TurboDriveTestCase {
     this.assert.ok(await this.querySelector("#recursive details:not([open])"))
   }
 
+  async "test loading a page with a <turbo-frame disabled recurse> does not lazily loads the matching frame"() {
+    await this.nextBeat
+
+    this.assert.notOk(await this.hasSelector("#disabled_recursive h2"))
+  }
+
   async "test submitting a form that redirects to a page with a <turbo-frame recurse> which lazily loads a matching frame"() {
     await this.nextBeat
     await this.clickSelector("#recursive summary")
@@ -154,6 +160,12 @@ export class FrameTests extends TurboDriveTestCase {
     await this.clickSelector("#recursive input[type=submit]")
     await this.nextBeat
     this.assert.ok(await this.querySelector("#recursive details:not([open])"))
+  }
+
+  async "test loading a page with a <turbo-frame disabled> does not lazily load the matching frame"() {
+    await this.nextBeat
+
+    this.assert.notOk(await this.hasSelector("#disabled h2"))
   }
 
   async "test removing [disabled] attribute from eager-loaded frame navigates it"() {
@@ -205,8 +217,7 @@ export class FrameTests extends TurboDriveTestCase {
   async "test 'turbo:frame-render' is triggered after frame has finished rendering"() {
     await this.clickSelector("#frame-part")
 
-    await this.nextEventNamed("turbo:frame-render") // recursive
-    const { fetchResponse } = await this.nextEventNamed("turbo:frame-render")
+    const { fetchResponse } = await this.nextEventOnTarget("part", "turbo:frame-render")
 
     this.assert.include(fetchResponse.response.url, "/src/tests/fixtures/frames/part.html")
   }
