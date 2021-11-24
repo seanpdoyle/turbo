@@ -12,7 +12,7 @@ import { FrameView } from "./frame_view"
 import { LinkInterceptor, LinkInterceptorDelegate } from "./link_interceptor"
 import { FrameRenderer } from "./frame_renderer"
 import { session } from "../index"
-import { isAction } from "../types"
+import { Action, isAction } from "../types"
 
 export class FrameController implements AppearanceObserverDelegate, FetchRequestDelegate, FormInterceptorDelegate, FormSubmissionDelegate, FrameElementDelegate, LinkInterceptorDelegate, ViewDelegate<Snapshot<FrameElement>> {
   readonly element: FrameElement
@@ -86,6 +86,8 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
       this.currentURL = this.sourceURL
       if (this.sourceURL) {
         try {
+          const action = getVisitAction(this.element)
+          if (action) this.proposeVisitWithAction(this.element, action)
           this.element.loaded = this.visit(expandURL(this.sourceURL))
           this.appearanceObserver.stop()
           await this.element.loaded
@@ -93,6 +95,8 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
         } catch (error) {
           this.currentURL = previousURL
           throw error
+        } finally {
+          this.fetchResponseLoaded = () => {}
         }
       }
     }
@@ -260,21 +264,23 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
     frame.src = url
   }
 
-  private proposeVisitIfNavigatedWithAction(frame: FrameElement, element: Element, submitter?: HTMLElement) {
-    const action = getAttribute("data-turbo-action", submitter, element, frame)
+  private proposeVisitWithAction(frame: FrameElement, action: Action) {
+    const { visitCachedSnapshot } = new SnapshotSubstitution(frame)
+    frame.delegate.fetchResponseLoaded = (fetchResponse: FetchResponse) => {
+      if (frame.src) {
+        const { statusCode, redirected } = fetchResponse
+        const responseHTML = frame.ownerDocument.documentElement.outerHTML
+        const response = { statusCode, redirected, responseHTML }
 
-    if (isAction(action)) {
-      const { visitCachedSnapshot } = new SnapshotSubstitution(frame)
-      frame.delegate.fetchResponseLoaded = (fetchResponse: FetchResponse) => {
-        if (frame.src) {
-          const { statusCode, redirected } = fetchResponse
-          const responseHTML = frame.ownerDocument.documentElement.outerHTML
-          const response = { statusCode, redirected, responseHTML }
-
-          session.visit(frame.src, { action, response, visitCachedSnapshot, willRender: false })
-        }
+        session.visit(frame.src, { action, response, visitCachedSnapshot, willRender: false })
       }
     }
+  }
+
+  private proposeVisitIfNavigatedWithAction(frame: FrameElement, element: Element, submitter?: HTMLElement) {
+    const action = getVisitAction(submitter, element, frame)
+
+    if (action) this.proposeVisitWithAction(frame, action)
   }
 
   private findFrameElement(element: Element, submitter?: HTMLElement) {
@@ -409,6 +415,14 @@ class SnapshotSubstitution {
 
     element.querySelector("#" + id)?.replaceWith(clone)
   }
+}
+
+function getVisitAction(...elements: (Element|undefined)[]): Action | null {
+  const action = getAttribute("data-turbo-action", ...elements)
+
+  return isAction(action) ?
+    action :
+    null
 }
 
 function getFrameElementById(id: string | null) {

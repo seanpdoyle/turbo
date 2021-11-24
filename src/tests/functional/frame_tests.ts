@@ -360,6 +360,19 @@ export class FrameTests extends TurboDriveTestCase {
     this.assert.equal(await this.pathname, "/src/tests/fixtures/frames/frame.html")
   }
 
+  async "test navigating turbo-frame[data-turbo-action=advance] programmatically pushes URL state"() {
+    await this.clickSelector("#add-turbo-action-to-frame")
+    await this.evaluate(
+      element => element.setAttribute("src", "/src/tests/fixtures/frames/frame.html"),
+      await this.querySelector("#frame")
+    )
+    await this.nextEventNamed("turbo:load")
+
+    this.assert.equal(await (await this.querySelector("h1")).getVisibleText(), "Frames")
+    this.assert.equal(await (await this.querySelector("#frame h2")).getVisibleText(), "Frame: Loaded")
+    this.assert.equal(await this.pathname, "/src/tests/fixtures/frames/frame.html")
+  }
+
   async "test navigating turbo-frame[data-turbo-action=advance] to the same URL clears the [aria-busy] and [data-turbo-preview] state"() {
     await this.clickSelector("#link-outside-frame-action-advance")
     await this.nextEventNamed("turbo:load")
