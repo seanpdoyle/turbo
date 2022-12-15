@@ -4,8 +4,11 @@ import {
   nextBeat,
   nextEventNamed,
   nextEventOnTarget,
+  noNextEventNamed,
   pathname,
   scrollToSelector,
+  setLocalStorageFromEvent,
+  sleep,
 } from "../helpers/page"
 import { assert } from "chai"
 
@@ -138,4 +141,56 @@ test("test canceling frame requests don't mutate the history", async ({ page }) 
 
   assert.equal(await page.textContent("#tab-content"), "Two")
   assert.equal(pathname((await page.getAttribute("#tab-frame", "src")) || ""), "/src/tests/fixtures/tabs/two.html")
+})
+
+test("test navigating away won't fire a new request", async ({ page }) => {
+  await page.goto("/src/tests/fixtures/tabs.html")
+  await page.click("#tab-2")
+
+  let event = await nextEventNamed(page, "turbo:before-fetch-request")
+  assert.equal(event.url, "http://localhost:9000/src/tests/fixtures/tabs/two.html")
+
+  await nextEventOnTarget(page, "tab-frame", "turbo:frame-load")
+  await nextEventNamed(page, "turbo:load")
+
+  assert.equal(pathname((await page.getAttribute("#tab-frame", "src")) || ""), "/src/tests/fixtures/tabs/two.html")
+
+  await page.click("#tab-3")
+
+  event = await nextEventNamed(page, "turbo:before-fetch-request")
+  assert.equal(event.url, "http://localhost:9000/src/tests/fixtures/tabs/three.html")
+})
+
+test("test going back in history won't fire new request", async ({ page }) => {
+  await page.goto("/src/tests/fixtures/tabs.html")
+  await page.click("#tab-2")
+
+  const event = await nextEventNamed(page, "turbo:before-fetch-request")
+  assert.equal(event.url, "http://localhost:9000/src/tests/fixtures/tabs/two.html")
+
+  await nextEventOnTarget(page, "tab-frame", "turbo:frame-load")
+  await nextEventNamed(page, "turbo:load")
+
+  assert.equal(pathname((await page.getAttribute("#tab-frame", "src")) || ""), "/src/tests/fixtures/tabs/two.html")
+
+  await page.route("**/src/tests/fixtures/tabs.html", async (route) => {
+    await sleep(2000)
+    route.continue()
+  })
+  // This request will be canceled
+  await page.click("#tab-1")
+  await page.click("#tab-3")
+
+  await nextEventOnTarget(page, "tab-frame", "turbo:frame-load")
+  await nextEventNamed(page, "turbo:load")
+
+  assert.equal(pathname((await page.getAttribute("#tab-frame", "src")) || ""), "/src/tests/fixtures/tabs/three.html")
+
+  await setLocalStorageFromEvent(page, "turbo:before-fetch-request", "requestSubmitted", "true")
+
+  await page.goBack()
+
+  await nextBeat()
+
+  assert.notOk(await getFromLocalStorage(page, "requestSubmitted"))
 })
