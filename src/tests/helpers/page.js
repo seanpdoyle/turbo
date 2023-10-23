@@ -261,18 +261,6 @@ export function waitForPathname(page, pathname) {
   return page.waitForURL((url) => url.pathname == pathname)
 }
 
-export function waitUntilText(page, text, state = "visible") {
-  return page.waitForSelector(`text='${text}'`, { state })
-}
-
-export function waitUntilSelector(page, selector, state = "visible") {
-  return page.waitForSelector(selector, { state })
-}
-
-export function waitUntilNoSelector(page, selector, state = "hidden") {
-  return page.waitForSelector(selector, { state })
-}
-
 export async function willChangeBody(page, callback) {
   const handles = []
 

@@ -1,8 +1,8 @@
-import { test } from "@playwright/test"
-import { assert } from "chai"
+import { expect, test } from "@playwright/test"
 import {
   getFromLocalStorage,
-  nextBody,
+  nextBeat,
+  nextEventNamed,
   nextEventOnTarget,
   pathname,
   searchParams,
@@ -18,30 +18,30 @@ test.beforeEach(async ({ page }) => {
 
 test("drive disabled by default; click normal link", async ({ page }) => {
   await page.click("#drive_disabled")
-  await nextBody(page)
+  await nextEventNamed(page, "turbo:load")
 
-  assert.equal(pathname(page.url()), path)
-  assert.equal(await visitAction(page), "load")
+  expect(pathname(page.url())).toEqual(path)
+  expect(await visitAction(page)).toEqual("load")
 })
 
 test("drive disabled by default; click link inside data-turbo='true'", async ({ page }) => {
   await page.click("#drive_enabled")
-  await nextBody(page)
+  await nextEventNamed(page, "turbo:load")
 
-  assert.equal(pathname(page.url()), path)
-  assert.equal(await visitAction(page), "advance")
+  expect(pathname(page.url())).toEqual(path)
+  expect(await visitAction(page)).toEqual("advance")
 })
 
 test("drive disabled by default; submit form inside data-turbo='true'", async ({ page }) => {
   await setLocalStorageFromEvent(page, "turbo:submit-start", "formSubmitted", "true")
 
   await page.click("#no_submitter_drive_enabled a#requestSubmit")
-  await nextBody(page)
+  await nextBeat()
 
-  assert.ok(await getFromLocalStorage(page, "formSubmitted"))
-  assert.equal(pathname(page.url()), "/src/tests/fixtures/form.html")
-  assert.equal(await visitAction(page), "advance")
-  assert.equal(await searchParams(page.url()).get("greeting"), "Hello from a redirect")
+  expect(await getFromLocalStorage(page, "formSubmitted")).toEqual("true")
+  expect(pathname(page.url())).toEqual("/src/tests/fixtures/form.html")
+  expect(await visitAction(page)).toEqual("advance")
+  expect(await searchParams(page.url()).get("greeting")).toEqual("Hello from a redirect")
 })
 
 test("drive disabled by default; links within <turbo-frame> navigate with Turbo", async ({ page }) => {

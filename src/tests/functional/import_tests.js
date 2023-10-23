@@ -1,10 +1,6 @@
-import { test } from "@playwright/test"
-import { assert } from "chai"
+import { expect, test } from "@playwright/test"
 
 test("window variable with ESM", async ({ page }) => {
   await page.goto("/src/tests/fixtures/esm.html")
-  const type = await page.evaluate(() => {
-    return typeof window.Turbo
-  })
-  assert.equal(type, "object")
+  expect(await page.evaluate(() => typeof window.Turbo)).toEqual("object")
 })

@@ -1,5 +1,4 @@
-import { test } from "@playwright/test"
-import { assert } from "chai"
+import { expect, test } from "@playwright/test"
 import { nextBeat } from "../helpers/page"
 
 test("preloads snapshot on initial load", async ({ page }) => {
@@ -7,14 +6,14 @@ test("preloads snapshot on initial load", async ({ page }) => {
   await page.goto("/src/tests/fixtures/preloading.html")
   await nextBeat()
 
-  assert.ok(
+  expect(
     await page.evaluate(() => {
-      const preloadedUrl = "http://localhost:9000/src/tests/fixtures/preloaded.html"
-      const cache = window.Turbo.session.preloader.snapshotCache.snapshots
+      const preloadedUrl = new URL("http://localhost:9000/src/tests/fixtures/preloaded.html")
+      const cache = window.Turbo.session.preloader.snapshotCache
 
       return preloadedUrl in cache
     })
-  )
+  ).toEqual(true)
 })
 
 test("preloads snapshot on page visit", async ({ page }) => {
@@ -26,14 +25,14 @@ test("preloads snapshot on page visit", async ({ page }) => {
   await page.waitForSelector("#preload_anchor")
   await nextBeat()
 
-  assert.ok(
+  expect(
     await page.evaluate(() => {
-      const preloadedUrl = "http://localhost:9000/src/tests/fixtures/preloaded.html"
-      const cache = window.Turbo.session.preloader.snapshotCache.snapshots
+      const preloadedUrl = new URL("http://localhost:9000/src/tests/fixtures/preloaded.html")
+      const cache = window.Turbo.session.preloader.snapshotCache
 
       return preloadedUrl in cache
     })
-  )
+  ).toEqual(true)
 })
 
 test("navigates to preloaded snapshot from frame", async ({ page }) => {
@@ -42,12 +41,12 @@ test("navigates to preloaded snapshot from frame", async ({ page }) => {
   await page.waitForSelector("#frame_preload_anchor")
   await nextBeat()
 
-  assert.ok(
+  expect(
     await page.evaluate(() => {
-      const preloadedUrl = "http://localhost:9000/src/tests/fixtures/preloaded.html"
-      const cache = window.Turbo.session.preloader.snapshotCache.snapshots
+      const preloadedUrl = new URL("http://localhost:9000/src/tests/fixtures/preloaded.html")
+      const cache = window.Turbo.session.preloader.snapshotCache
 
       return preloadedUrl in cache
     })
-  )
+  ).toEqual(true)
 })

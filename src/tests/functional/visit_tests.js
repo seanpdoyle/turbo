@@ -1,5 +1,4 @@
-import { test } from "@playwright/test"
-import { assert } from "chai"
+import { expect, test } from "@playwright/test"
 import { get } from "http"
 import {
   cancelNextEvent,
@@ -28,17 +27,17 @@ test("programmatically visiting a same-origin location", async ({ page }) => {
   await nextBeat()
 
   const urlAfterVisit = page.url()
-  assert.notEqual(urlBeforeVisit, urlAfterVisit)
-  assert.equal(await visitAction(page), "advance")
+  expect(urlBeforeVisit).not.toEqual(urlAfterVisit)
+  expect(await visitAction(page)).toEqual("advance")
 
   const { url: urlFromBeforeVisitEvent } = await nextEventNamed(page, "turbo:before-visit")
-  assert.equal(urlFromBeforeVisitEvent, urlAfterVisit)
+  expect(urlFromBeforeVisitEvent).toEqual(urlAfterVisit)
 
   const { url: urlFromVisitEvent } = await nextEventNamed(page, "turbo:visit")
-  assert.equal(urlFromVisitEvent, urlAfterVisit)
+  expect(urlFromVisitEvent).toEqual(urlAfterVisit)
 
   const { timing } = await nextEventNamed(page, "turbo:load")
-  assert.ok(timing)
+  expect(timing).not.toEqual(null)
 })
 
 test("skip programmatically visiting a cross-origin location falls back to window.location", async ({ page }) => {
@@ -46,8 +45,8 @@ test("skip programmatically visiting a cross-origin location falls back to windo
   await visitLocation(page, "about:blank")
 
   const urlAfterVisit = page.url()
-  assert.notEqual(urlBeforeVisit, urlAfterVisit)
-  assert.equal(await visitAction(page), "load")
+  expect(urlBeforeVisit).not.toEqual(urlAfterVisit)
+  expect(await visitAction(page)).toEqual("load")
 })
 
 test("visiting a location served with a non-HTML content type", async ({ page }) => {
@@ -57,75 +56,74 @@ test("visiting a location served with a non-HTML content type", async ({ page })
 
   const url = page.url()
   const contentType = await contentTypeOfURL(url)
-  assert.equal(contentType, "image/svg+xml")
+  expect(contentType).toEqual("image/svg+xml")
 
   const urlAfterVisit = page.url()
-  assert.notEqual(urlBeforeVisit, urlAfterVisit)
-  assert.equal(await visitAction(page), "load")
+  expect(urlBeforeVisit).not.toEqual(urlAfterVisit)
+  expect(await visitAction(page)).toEqual("load")
 })
 
 test("canceling a turbo:click event falls back to built-in browser navigation", async ({ page }) => {
   await cancelNextEvent(page, "turbo:click")
   await Promise.all([page.waitForNavigation(), page.click("#same-origin-link")])
 
-  assert.equal(pathname(page.url()), "/src/tests/fixtures/one.html")
+  expect(pathname(page.url())).toEqual("/src/tests/fixtures/one.html")
 })
 
 test("canceling a before-visit event prevents navigation", async ({ page }) => {
   await cancelNextVisit(page)
   const urlBeforeVisit = page.url()
 
-  assert.notOk(
+  expect(
     await willChangeBody(page, async () => {
       await page.click("#same-origin-link")
       await nextBeat()
     })
-  )
+  ).toEqual(false)
 
   const urlAfterVisit = page.url()
-  assert.equal(urlAfterVisit, urlBeforeVisit)
+  expect(urlAfterVisit).toEqual(urlBeforeVisit)
 })
 
 test("navigation by history is not cancelable", async ({ page }) => {
   await page.click("#same-origin-link")
   await nextEventNamed(page, "turbo:load")
 
-  assert.equal(await page.textContent("h1"), "One")
+  await expect(page.locator("h1")).toHaveText("One")
 
   await cancelNextVisit(page)
   await page.goBack()
   await nextEventNamed(page, "turbo:load")
 
-  assert.equal(await page.textContent("h1"), "Visit")
+  await expect(page.locator("h1")).toHaveText("Visit")
 })
 
 test("turbo:before-fetch-request event.detail", async ({ page }) => {
   await page.click("#same-origin-link")
   const { url, fetchOptions } = await nextEventNamed(page, "turbo:before-fetch-request")
 
-  assert.equal(fetchOptions.method, "get")
-  assert.ok(url.includes("/src/tests/fixtures/one.html"))
+  expect(fetchOptions.method).toEqual("get")
+  expect(url).toContain("/src/tests/fixtures/one.html")
 })
 
 test("turbo:before-fetch-request event.detail encodes searchParams", async ({ page }) => {
   await page.click("#same-origin-link-search-params")
   const { url } = await nextEventNamed(page, "turbo:before-fetch-request")
 
-  assert.ok(url.includes("/src/tests/fixtures/one.html?key=value"))
+  expect(url).toContain("/src/tests/fixtures/one.html?key=value")
 })
 
 test("turbo:before-fetch-response open new site", async ({ page }) => {
-  page.evaluate(() =>
+  await page.evaluate(() =>
     addEventListener(
       "turbo:before-fetch-response",
-      async function eventListener(event) {
-        removeEventListener("turbo:before-fetch-response", eventListener, false)
+      async (event) => {
         window.fetchResponseResult = {
           responseText: await event.detail.fetchResponse.responseText,
           responseHTML: await event.detail.fetchResponse.responseHTML
         }
       },
-      false
+      { once: true }
     )
   )
 
@@ -134,25 +132,25 @@ test("turbo:before-fetch-response open new site", async ({ page }) => {
 
   const fetchResponseResult = await page.evaluate(() => window.fetchResponseResult)
 
-  assert.isTrue(fetchResponseResult.responseText.indexOf("An element with an ID") > -1)
-  assert.isTrue(fetchResponseResult.responseHTML.indexOf("An element with an ID") > -1)
+  expect(fetchResponseResult.responseText.indexOf("An element with an ID") > -1).toEqual(true)
+  expect(fetchResponseResult.responseHTML.indexOf("An element with an ID") > -1).toEqual(true)
 })
 
 test("visits with data-turbo-stream include MIME type & search params", async ({ page }) => {
   await page.click("#stream-link")
   const { fetchOptions, url } = await nextEventNamed(page, "turbo:before-fetch-request")
 
-  assert.ok(fetchOptions.headers["Accept"].includes("text/vnd.turbo-stream.html"))
-  assert.equal(getSearchParam(url, "key"), "value")
+  expect(fetchOptions.headers["Accept"]).toContain("text/vnd.turbo-stream.html")
+  expect(getSearchParam(url, "key")).toEqual("value")
 })
 
 test("visits with data-turbo-stream do not set aria-busy", async ({ page }) => {
   await page.click("#stream-link")
 
-  assert.ok(
+  expect(
     await noNextAttributeMutationNamed(page, "html", "aria-busy"),
     "never sets [aria-busy] on the document element"
-  )
+  ).toEqual(true)
 })
 
 test("cache does not override response after redirect", async ({ page }) => {
@@ -161,7 +159,7 @@ test("cache does not override response after redirect", async ({ page }) => {
     document.body.appendChild(cachedElement)
   })
 
-  assert.equal(await page.locator("some-cached-element").count(), 1)
+  expect(await page.locator("some-cached-element").count()).toEqual(1)
 
   await page.click("#same-origin-link")
   await nextBeat()
@@ -169,7 +167,7 @@ test("cache does not override response after redirect", async ({ page }) => {
   await nextBeat() // 301 redirect response
   await nextBeat() // 200 response
 
-  assert.equal(await page.locator("some-cached-element").count(), 0)
+  expect(await page.locator("some-cached-element").count()).toEqual(0)
 })
 
 function cancelNextVisit(page) {
@@ -188,12 +186,12 @@ test("can scroll to element after click-initiated turbo:visit", async ({ page })
     addEventListener("turbo:load", () => document.getElementById(id)?.scrollIntoView())
   }, id)
 
-  assert(await isScrolledToTop(page), "starts unscrolled")
+  expect(await isScrolledToTop(page)).toEqual(true)
 
   await page.click("#same-page-link")
   await nextEventNamed(page, "turbo:load")
 
-  assert(await isScrolledToSelector(page, "#" + id), "scrolls after click-initiated turbo:load")
+  expect(await isScrolledToSelector(page, "#" + id)).toEqual(true)
 })
 
 test("can scroll to element after history-initiated turbo:visit", async ({ page }) => {
@@ -208,7 +206,7 @@ test("can scroll to element after history-initiated turbo:visit", async ({ page 
   await page.goBack()
   await nextEventNamed(page, "turbo:load")
 
-  assert(await isScrolledToSelector(page, "#" + id), "scrolls after history-initiated turbo:load")
+  expect(await isScrolledToSelector(page, "#" + id)).toEqual(true)
 })
 
 test("Visit with network error", async ({ page }) => {
