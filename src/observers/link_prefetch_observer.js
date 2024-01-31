@@ -19,41 +19,35 @@ export class LinkPrefetchObserver {
   }
 
   start() {
-    if (this.started) return
+    if (!this.started) {
+      this.eventTarget.addEventListener(this.hoverTriggerEvent, this.#tryToPrefetchRequest, {
+        capture: true,
+        passive: true
+      })
+      this.eventTarget.addEventListener(this.touchTriggerEvent, this.#tryToPrefetchRequest, {
+        capture: true,
+        passive: true
+      })
+      this.eventTarget.addEventListener("turbo:before-fetch-request", this.#tryToUsePrefetchedRequest, true)
 
-    if (this.eventTarget.readyState === "loading") {
-      this.eventTarget.addEventListener("DOMContentLoaded", this.#enable, { once: true })
-    } else {
-      this.#enable()
+      this.started = true
     }
   }
 
   stop() {
-    if (!this.started) return
+    if (this.started) {
+      this.eventTarget.removeEventListener(this.hoverTriggerEvent, this.#tryToPrefetchRequest, {
+        capture: true,
+        passive: true
+      })
+      this.eventTarget.removeEventListener(this.touchTriggerEvent, this.#tryToPrefetchRequest, {
+        capture: true,
+        passive: true
+      })
+      this.eventTarget.removeEventListener("turbo:before-fetch-request", this.#tryToUsePrefetchedRequest, true)
 
-    this.eventTarget.removeEventListener(this.hoverTriggerEvent, this.#tryToPrefetchRequest, {
-      capture: true,
-      passive: true
-    })
-    this.eventTarget.removeEventListener(this.touchTriggerEvent, this.#tryToPrefetchRequest, {
-      capture: true,
-      passive: true
-    })
-    this.eventTarget.removeEventListener("turbo:before-fetch-request", this.#tryToUsePrefetchedRequest, true)
-    this.started = false
-  }
-
-  #enable = () => {
-    this.eventTarget.addEventListener(this.hoverTriggerEvent, this.#tryToPrefetchRequest, {
-      capture: true,
-      passive: true
-    })
-    this.eventTarget.addEventListener(this.touchTriggerEvent, this.#tryToPrefetchRequest, {
-      capture: true,
-      passive: true
-    })
-    this.eventTarget.addEventListener("turbo:before-fetch-request", this.#tryToUsePrefetchedRequest, true)
-    this.started = true
+      this.started = false
+    }
   }
 
   #tryToPrefetchRequest = (event) => {
@@ -95,6 +89,8 @@ export class LinkPrefetchObserver {
     }
   }
 
+  // FetchRequest delegate
+
   prepareRequest(request) {
     const link = request.target
 
@@ -111,8 +107,6 @@ export class LinkPrefetchObserver {
       request.acceptResponseType("text/vnd.turbo-stream.html")
     }
   }
-
-  // Fetch request interface
 
   requestSucceededWithResponse() {}
 

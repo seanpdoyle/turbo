@@ -203,7 +203,7 @@ export class Session {
 
   submittedFormLinkToLocation() {}
 
-  // Link hover observer delegate
+  // LinkPrefetchObserver delegate
 
   canPrefetchRequestToLocation(link, location) {
     return (
@@ -285,6 +285,7 @@ export class Session {
   // Page observer delegate
 
   pageBecameInteractive() {
+    this.linkPrefetchObserver.start()
     this.view.lastRenderedLocation = this.location
     this.notifyApplicationAfterPageLoad()
   }
